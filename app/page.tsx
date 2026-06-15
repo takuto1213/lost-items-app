@@ -1,5 +1,16 @@
-import { getItems, Item } from "@/lib/api";
 import Link from "next/link";
+
+export const dynamic = "force-dynamic";
+
+async function getItems() {
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api/gas";
+    const res = await fetch(baseUrl, { cache: "no-store" });
+    return await res.json();
+  } catch {
+    return [];
+  }
+}
 
 export default async function HomePage() {
   const items = await getItems();
@@ -15,8 +26,8 @@ export default async function HomePage() {
       {items.length === 0 && (
         <p className="text-gray-500">登録されている落とし物はありません</p>
       )}
-      {items.map((item: Item) => (
-        <Link href={`/detail/${item.id}`} key={item.id}>
+      {items.map((item: any) => (
+        <Link href={`/detail/${String(item.id)}`} key={String(item.id)}>
           <div className="border rounded p-3 mb-2 hover:bg-gray-50 cursor-pointer">
             <div className="flex justify-between">
               <p className="font-bold">{item.name}</p>
