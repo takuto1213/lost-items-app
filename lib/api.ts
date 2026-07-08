@@ -14,7 +14,10 @@ export type Item = {
 };
 
 export async function getItems(): Promise<Item[]> {
-  const res = await fetch(API_URL, { cache: "no-store" });
+  const url = typeof window === "undefined"
+    ? `${process.env.NEXT_PUBLIC_GAS_URL}`
+    : API_URL;
+  const res = await fetch(url, { cache: "no-store" });
   return res.json();
 }
 
@@ -79,7 +82,6 @@ export async function updateKeepDays(keepDays: number) {
   });
 }
 
-// 残り日数を計算する
 export function calcRemainingDays(deadline: string): number {
   if (!deadline) return 999;
   const today = new Date();
