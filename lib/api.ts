@@ -1,4 +1,4 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api/gas";
+const API_URL = "/api/gas";
 
 export type Item = {
   id: string;
@@ -9,6 +9,8 @@ export type Item = {
   storage: string;
   status: string;
   imageUrl: string;
+  deadline: string;
+  keepDays: number;
 };
 
 export async function getItems(): Promise<Item[]> {
@@ -68,4 +70,21 @@ export async function deleteItem(id: string) {
     method: "POST",
     body: JSON.stringify({ action: "delete", id }),
   });
+}
+
+export async function updateKeepDays(keepDays: number) {
+  await fetch(API_URL, {
+    method: "POST",
+    body: JSON.stringify({ action: "updateKeepDays", keepDays }),
+  });
+}
+
+// 残り日数を計算する
+export function calcRemainingDays(deadline: string): number {
+  if (!deadline) return 999;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const d = new Date(deadline);
+  d.setHours(0, 0, 0, 0);
+  return Math.ceil((d.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 }

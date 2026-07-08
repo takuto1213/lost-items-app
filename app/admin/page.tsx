@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Item } from "@/lib/api";
+import { Item, updateKeepDays, calcRemainingDays } from "@/lib/api";
 
 const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD!;
 
@@ -10,6 +10,8 @@ export default function AdminPage() {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [keepDays, setKeepDays] = useState(30);
+  const [saving, setSaving] = useState(false);
 
   function handleLogin() {
     if (password === ADMIN_PASSWORD) {
@@ -25,6 +27,9 @@ export default function AdminPage() {
     const res = await fetch("/api/gas");
     const data = await res.json();
     setItems(data);
+    if (data.length > 0 && data[0].keepDays) {
+      setKeepDays(data[0].keepDays);
+    }
     setLoading(false);
   }
 
@@ -44,6 +49,13 @@ export default function AdminPage() {
       body: JSON.stringify({ action: "delete", id }),
     });
     loadItems();
+  }
+
+  async function handleSaveKeepDays() {
+    setSaving(true);
+    await updateKeepDays(keepDays);
+    alert(`保存期間を${keepDays}日に設定しました！`);
+    setSaving(false);
   }
 
   if (!loggedIn) {
@@ -70,14 +82,43 @@ export default function AdminPage() {
   }
 
   return (
-    <main className="p-4 max-w-2xl mx-auto">
+    <main className="p-4 max-w-4xl mx-auto">
       <h1 className="text-2xl font-bold mb-4">🛠 管理者画面</h1>
-      <button
-        className="mb-4 bg-gray-200 px-3 py-1 rounded text-sm"
-        onClick={loadItems}
-      >
-        🔄 更新
-      </button>
+
+      {/* 保存期間設定 */}
+      <div className="border rounded p-4 mb-6 bg-gray-50">
+        <h2 className="font-bold mb-2">⚙️ 保存期間の設定</h2>
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            className="border p-2 rounded w-24"
+            value={keepDays}
+            min={1}
+            onChange={e => setKeepDays(Number(e.target.value))}
+          />
+          <span>日間</span>
+          <button
+            className="bg-blue-500 text-white px-4 py-2 rounded disabled:opacity-50"
+            onClick={handleSaveKeepDays}
+            disabled={saving}
+          >
+            {saving ? "保存中..." : "保存"}
+          </button>
+        </div>
+        <p className="text-sm text-gray-500 mt-1">
+          ※新しく登録された落とし物から適用されます
+        </p>
+      </div>
+
+      <div className="flex justify-between items-center mb-2">
+        <h2 className="font-bold">📋 落とし物一覧</h2>
+        <button
+          className="bg-gray-200 px-3 py-1 rounded text-sm"
+          onClick={loadItems}
+        >
+          🔄 更新
+        </button>
+      </div>
 
       {loading && <p className="text-gray-500">読み込み中...</p>}
 
@@ -89,46 +130,58 @@ export default function AdminPage() {
               <th className="border p-2 text-left">発見場所</th>
               <th className="border p-2 text-left">保管場所</th>
               <th className="border p-2 text-left">状態</th>
-              <th className="border p-2 text-left">登録日時</th>
+              <th className="border p-2 text-left">保管期限</th>
+              <th className="border p-2 text-left">残り日数</th>
               <th className="border p-2 text-left">操作</th>
             </tr>
           </thead>
           <tbody>
-            {items.map(item => (
-              <tr key={item.id} className="hover:bg-gray-50">
-                <td className="border p-2">{item.name}</td>
-                <td className="border p-2">{item.found}</td>
-                <td className="border p-2">{item.storage}</td>
-                <td className="border p-2">
-                  <span className={`px-2 py-0.5 rounded text-xs ${
-                    item.status === "保管中"
-                      ? "bg-green-100 text-green-700"
-                      : "bg-gray-200 text-gray-500"
+            {items.map(item => {
+              const days = calcRemainingDays(item.deadline);
+              const isExpired = days < 0;
+              return (
+                <tr key={item.id} className={`hover:bg-gray-50 ${isExpired ? "bg-red-50" : ""}`}>
+                  <td className="border p-2">{item.name}</td>
+                  <td className="border p-2">{item.found}</td>
+                  <td className="border p-2">{item.storage}</td>
+                  <td className="border p-2">
+                    <span className={`px-2 py-0.5 rounded text-xs ${
+                      item.status === "保管中"
+                        ? "bg-green-100 text-green-700"
+                        : "bg-gray-200 text-gray-500"
+                    }`}>
+                      {item.status}
+                    </span>
+                  </td>
+                  <td className="border p-2">{item.deadline || "なし"}</td>
+                  <td className={`border p-2 font-bold ${
+                    isExpired ? "text-red-600" : days <= 3 ? "text-orange-500" : ""
                   }`}>
-                    {item.status}
-                  </span>
-                </td>
-                <td className="border p-2">{item.date}</td>
-                <td className="border p-2">
-                  <div className="flex gap-1">
-                    {item.status === "保管中" && (
+                    {item.deadline
+                      ? isExpired ? "期限切れ" : `残り${days}日`
+                      : "-"}
+                  </td>
+                  <td className="border p-2">
+                    <div className="flex gap-1">
+                      {item.status === "保管中" && (
+                        <button
+                          className="bg-green-500 text-white px-2 py-1 rounded text-xs"
+                          onClick={() => handleComplete(item.id)}
+                        >
+                          返却済
+                        </button>
+                      )}
                       <button
-                        className="bg-green-500 text-white px-2 py-1 rounded text-xs"
-                        onClick={() => handleComplete(item.id)}
+                        className="bg-red-500 text-white px-2 py-1 rounded text-xs"
+                        onClick={() => handleDelete(item.id)}
                       >
-                        返却済
+                        削除
                       </button>
-                    )}
-                    <button
-                      className="bg-red-500 text-white px-2 py-1 rounded text-xs"
-                      onClick={() => handleDelete(item.id)}
-                    >
-                      削除
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Item } from "@/lib/api";
+import { Item, calcRemainingDays } from "@/lib/api";
 
 export default function HomePage() {
   const [items, setItems] = useState<Item[]>([]);
@@ -29,6 +29,26 @@ export default function HomePage() {
       statusFilter === "すべて" || item.status === statusFilter;
     return matchSearch && matchStatus;
   });
+
+  function DeadlineBadge({ deadline }: { deadline: string }) {
+    const days = calcRemainingDays(deadline);
+    if (!deadline) return null;
+    if (days < 0) return (
+      <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded">
+        期限切れ
+      </span>
+    );
+    if (days <= 3) return (
+      <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded">
+        残り{days}日
+      </span>
+    );
+    return (
+      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+        残り{days}日
+      </span>
+    );
+  }
 
   return (
     <main className="p-4 max-w-xl mx-auto">
@@ -67,24 +87,33 @@ export default function HomePage() {
       {!loading && filtered.length === 0 && (
         <p className="text-gray-500">該当する落とし物はありません</p>
       )}
-      {filtered.map((item: Item) => (
-        <Link href={`/detail/${String(item.id)}`} key={String(item.id)}>
-          <div className="border rounded p-3 mb-2 hover:bg-gray-50 cursor-pointer">
-            <div className="flex justify-between">
-              <p className="font-bold">{item.name}</p>
-              <span className={`text-sm px-2 py-0.5 rounded ${
-                item.status === "保管中"
-                  ? "bg-green-100 text-green-700"
-                  : "bg-gray-200 text-gray-500"
-              }`}>
-                {item.status}
-              </span>
+      {filtered.map((item: Item) => {
+        const days = calcRemainingDays(item.deadline);
+        const isExpired = days < 0;
+        return (
+          <Link href={`/detail/${String(item.id)}`} key={String(item.id)}>
+            <div className={`border rounded p-3 mb-2 hover:bg-gray-50 cursor-pointer ${
+              isExpired ? "border-red-300 bg-red-50" : ""
+            }`}>
+              <div className="flex justify-between items-start">
+                <p className="font-bold">{item.name}</p>
+                <div className="flex gap-1 items-center">
+                  <DeadlineBadge deadline={item.deadline} />
+                  <span className={`text-sm px-2 py-0.5 rounded ${
+                    item.status === "保管中"
+                      ? "bg-green-100 text-green-700"
+                      : "bg-gray-200 text-gray-500"
+                  }`}>
+                    {item.status}
+                  </span>
+                </div>
+              </div>
+              <p className="text-sm text-gray-500 mt-1">📍 {item.found}で発見</p>
+              <p className="text-sm text-gray-400">{item.date}</p>
             </div>
-            <p className="text-sm text-gray-500 mt-1">📍 {item.found}で発見</p>
-            <p className="text-sm text-gray-400">{item.date}</p>
-          </div>
-        </Link>
-      ))}
+          </Link>
+        );
+      })}
     </main>
   );
 }

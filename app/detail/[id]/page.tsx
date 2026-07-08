@@ -1,4 +1,4 @@
-import { getItems, Item } from "@/lib/api";
+import { getItems, Item, calcRemainingDays } from "@/lib/api";
 import Link from "next/link";
 import DetailActions from "./DetailActions";
 
@@ -17,6 +17,9 @@ export default async function DetailPage(props: {
       </main>
     );
   }
+
+  const days = calcRemainingDays(item.deadline);
+  const isExpired = days < 0;
 
   return (
     <main className="p-4 max-w-xl mx-auto">
@@ -41,6 +44,14 @@ export default async function DetailPage(props: {
         <p>📍 発見場所：{item.found}</p>
         <p>🗂 保管場所：{item.storage}</p>
         <p>📅 登録日時：{item.date}</p>
+        {item.deadline && (
+          <p className={isExpired ? "text-red-600 font-bold" : ""}>
+            ⏰ 保管期限：{item.deadline}
+            {isExpired
+              ? "（期限切れ）"
+              : `（残り${days}日）`}
+          </p>
+        )}
         <p>
           状態：
           <span className={`ml-2 px-2 py-0.5 rounded text-sm ${
